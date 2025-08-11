@@ -6,10 +6,12 @@ from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from api.utils import APIException, generate_sitemap
-from api.models import db
+from api.models import db, User, Character, Planet, Favorite, Vehicle
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
+from sqlalchemy import select
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 
 # from models import Person
 
@@ -36,6 +38,10 @@ setup_admin(app)
 
 # add the admin
 setup_commands(app)
+
+# Setup the Flask-JWT-Extended extension
+app.config["JWT_SECRET_KEY"] = "super-secret"  # Change this!
+jwt = JWTManager(app)
 
 # Add all endpoints form the API with a "api" prefix
 app.register_blueprint(api, url_prefix='/api')
@@ -64,6 +70,239 @@ def serve_any_other_file(path):
     response = send_from_directory(static_file_dir, path)
     response.cache_control.max_age = 0  # avoid cache memory
     return response
+
+##My Enpoints start here
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    all_users = db.session.execute(select(User)).scalars().all()
+   
+    results = list(map(lambda user: user.serialize(), all_users))
+
+   
+    response_body = {
+        "results": results
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/signup', methods=['POST'])
+def create_user():
+    data = request.get_json()
+    user_email = data.get("email")
+    user_password = data.get("password")
+
+    user = db.session.execute(select(User).where(User.email == user_email)).scalar_one_or_none()
+
+    if user is not None:
+        return jsonify({"msg": "email already in use"}), 409
+    
+    new_user = User(email=user_email, password=user_password, is_active=True)
+    db.session.add(new_user)
+    db.session.commit()
+
+    response_body = {
+        "msg": "User added successfully",
+        "user": new_user.serialize()
+    }
+
+    return jsonify(response_body), 201
+
+# Create a route to authenticate your users and return JWTs. The
+# create_access_token() function is used to actually generate the JWT.
+@app.route("/login", methods=["POST"])
+def login():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+
+    user = db.session.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if user is None:
+        return jsonify({"msg": "Bad username or password"}), 404
+    
+    if email != user.email or password != user.password:
+        return jsonify({"msg": "Bad username or password"}), 401
+
+    access_token = create_access_token(identity=email)
+    return jsonify(access_token=access_token), 200
+
+# Protect a route with jwt_required, which will kick out requests
+# without a valid JWT present.
+@app.route("/favorites", methods=["GET"])
+@jwt_required()
+def protected():
+    # Access the identity of the current user with get_jwt_identity
+    current_user_email = get_jwt_identity()
+
+    user = db.session.execute(select(User).where(User.email == current_user_email)).scalar_one_or_none()
+
+    user_favorites = db.session.execute(select(Favorite).where(Favorite.user_id == user.id)).scalars().all()
+    results = list(map(lambda favorite: favorite.serialize(), user_favorites))
+    return jsonify(logged_in_as=current_user_email, favorites=results), 200
+
+@app.route('/characters', methods=['GET'])
+def get_characters():
+
+    all_characters = db.session.execute(select(Character)).scalars().all()
+   
+    results = list(map(lambda character: character.serialize(), all_characters))
+
+    # characters= Character.query.all()
+    response_body = {
+        "results": results
+    }
+
+    return jsonify(response_body), 200
+
+    # return jsonify([character.serialize()for character in all_characters]), 200
+
+@app.route('/characters/<int:id>', methods=['GET'])
+def get_one_characters(id):
+    print(id)
+    character = db.session.execute(select(Character).where(Character.id == id)).scalar_one_or_none()
+    
+    
+    if character is None:
+        return jsonify({"msg": "Character not found"}), 404
+
+    response_body = {
+        "msg": "ok",
+        "result": character.serialize()
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/planets', methods=['GET'])
+def get_planets():
+    try:
+
+        all_planets = db.session.execute(select(Planet)).scalars().all()
+   
+        results = list(map(lambda planets: planets.serialize(), all_planets))
+
+    # characters= Character.query.all()
+        response_body = {
+            "results": results
+        }
+
+        return jsonify(response_body), 200
+    except Exception as e:
+        return jsonify({"msg": "Error retrieving planets", "error": str(e)}), 500
+    
+
+@app.route('/planets/<int:id>', methods=['GET'])
+def get_one_planet(id):
+    print(id)
+    planet = db.session.execute(select(Planet).where(Planet.id == id)).scalar_one_or_none()
+    
+    
+    if planet is None:
+        return jsonify({"msg": "Planet not found"}), 404
+
+    response_body = {
+        "msg": "ok",
+        "result": planet.serialize()
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/user/favorites', methods=['GET'])
+def get_user_favorites():
+    user_id = request.json.get("id", None)
+    user = db.session.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    
+    if user is None:
+        return jsonify({"msg": "User not found"}), 404
+
+    favorites = db.session.execute(select(Favorite).where(Favorite.user_id == user_id)).scalars().all()
+    
+    results = list(map(lambda favorite: favorite.serialize(), favorites))
+
+    response_body = {
+        "results": results
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/favorite/planet/<int:planet_id>', methods=['POST'])
+def add_favorite_planet(planet_id):
+    user_id = request.json.get("id", None)
+    user = db.session.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    planet = db.session.execute(select(Planet).where(Planet.id == planet_id)).scalar_one_or_none()
+    
+    if user is None:
+        return jsonify({"msg": "User not found"}), 404
+    if planet is None:
+        return jsonify({"msg": "Planet not found"}), 404
+
+    new_favorite = Favorite(user_id=user_id, planet_id=planet_id)
+    db.session.add(new_favorite)
+    db.session.commit()
+
+    response_body = {
+        "msg": "Favorite added successfully",
+        "favorite": new_favorite.serialize()
+    }
+
+    return jsonify(response_body), 201
+
+@app.route('/favorite/character/<int:character_id>', methods=['POST'])
+def add_favorite_character(character_id):
+    user_id = request.json.get("id", None)
+    user = db.session.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    planet = db.session.execute(select(Character).where(Character.id == character_id)).scalar_one_or_none()
+    
+    if user is None:
+        return jsonify({"msg": "User not found"}), 404
+    if planet is None:
+        return jsonify({"msg": "Character not found"}), 404
+
+    new_favorite = Favorite(user_id=user_id, character_id=character_id)
+    db.session.add(new_favorite)
+    db.session.commit()
+
+    response_body = {
+        "msg": "Favorite added successfully",
+        "favorite": new_favorite.serialize()
+    }
+
+    return jsonify(response_body), 201
+
+
+@app.route('/favorite/character/<int:character_id>', methods=['DELETE'])
+def delete_favorite_character(character_id):
+    user_id = request.json.get("id", None)
+    favorite = db.session.execute(select(Favorite).where(Favorite.user_id == user_id, Favorite.character_id == character_id)).scalar_one_or_none()
+    
+    if favorite is None:
+        return jsonify({"msg": "Favorite not found"}), 404
+
+    db.session.delete(favorite)
+    db.session.commit()
+
+    response_body = {
+        "msg": "Favorite deleted successfully"
+    }
+
+    return jsonify(response_body), 200
+
+@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])
+def delete_favorite_planet(planet_id):
+    user_id = request.json.get("id", None)
+    favorite = db.session.execute(select(Favorite).where(Favorite.user_id == user_id, Favorite.planet_id == planet_id)).scalar_one_or_none()
+    
+    if favorite is None:
+        return jsonify({"msg": "Favorite not found"}), 404
+
+    db.session.delete(favorite)
+    db.session.commit()
+
+    response_body = {
+        "msg": "Favorite deleted successfully"
+    }
+
+    return jsonify(response_body), 200
+
+##My Enpoints end here
 
 
 # this only runs if `$ python src/main.py` is executed
