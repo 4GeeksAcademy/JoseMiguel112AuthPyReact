@@ -1,5 +1,6 @@
 import React, {useState} from "react";
 import useGlobalReducer from "../hooks/useGlobalReducer";
+import { login } from "../../services/userServices";
 
 export const LoginForm = () => {
 
@@ -9,7 +10,8 @@ export const LoginForm = () => {
 
     function handleSubmit(e) {
         e.preventDefault()
-        console.log(email, password);
+        console.log(email,password)
+        login(email,password)
     }
 
     return (
