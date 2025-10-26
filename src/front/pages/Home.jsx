@@ -39,9 +39,15 @@ export const Home = () => {
 			<p className="lead">
 				<img src={rigoImageUrl} className="img-fluid rounded-circle mb-3" alt="Rigo Baby" />
 			</p>
+			<div className="fluid-container p-3 mb-3">
+
 			 <Link to={'/login'}>
           <button className="btn btn-primary">Go to Login Page</button>
         </Link>
+		<Link to={'/signin'}>
+          <button className="btn btn-success">Go to Sign in Page</button>
+        </Link>
+			</div>
 			<div className="alert alert-info">
 				{store.message ? (
 					<span>{store.message}</span>

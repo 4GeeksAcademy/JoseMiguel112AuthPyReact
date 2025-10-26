@@ -38,3 +38,23 @@ def login():
 
     access_token = create_access_token(identity=email)
     return jsonify(access_token=access_token), 200
+
+
+@api.route("/signin", methods=["POST"])
+def signin():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+
+    if not email or not password:
+        return jsonify({"msg": "Email y password son requeridos"}), 400
+
+    existing_user = db.session.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if existing_user is not None:
+        return jsonify({"msg": "Usuario ya existe"}), 409
+
+    
+    new_user = User(email=email, password=password, is_active=True)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({"msg": "Usuario creado", "email": new_user.email}), 201

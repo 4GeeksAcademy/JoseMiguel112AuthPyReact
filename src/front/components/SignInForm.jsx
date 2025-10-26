@@ -1,27 +1,17 @@
 import React, {useState} from "react";
 import useGlobalReducer from "../hooks/useGlobalReducer";
-import { login } from "../../services/userServices";
-import { useNavigate } from "react-router-dom";
+import { signIn } from "../../services/userServices";
 
-export const LoginForm = () => {
+export const SigninForm = () => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const {store, dispatch } = useGlobalReducer();
-    const navigate = useNavigate();
 
-
-    async function handleSubmit(e) {
+    function handleSubmit(e) {
         e.preventDefault()
         console.log(email,password)
-        const token = await login(email,password)
-        if (token) {
-            sessionStorage.setItem('access_token', token)
-            navigate('/protected')
-            // continuar (navegar, actualizar estado, etc.)
-        } else {
-         console.log('Login fallido')   // manejar error de login
-        }
+        signIn(email,password)
     }
 
     return (
