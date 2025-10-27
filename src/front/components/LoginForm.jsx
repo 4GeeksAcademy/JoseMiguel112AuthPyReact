@@ -17,9 +17,12 @@ export const LoginForm = () => {
         const token = await login(email,password)
         if (token) {
             sessionStorage.setItem('access_token', token)
-            navigate('/protected')
+            navigate('/private')
             // continuar (navegar, actualizar estado, etc.)
         } else {
+            alert('Login fallido')
+            setEmail('')
+            setPassword('')
          console.log('Login fallido')   // manejar error de login
         }
     }

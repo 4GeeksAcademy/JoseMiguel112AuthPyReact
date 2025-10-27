@@ -11,6 +11,7 @@ import { Single } from "./pages/Single";
 import { Demo } from "./pages/Demo";
 import { Login } from "./pages/Login";
 import { SignIn } from "./pages/SignIn";
+import { Private } from "./pages/Private";
 
 
 export const router = createBrowserRouter(
@@ -30,6 +31,7 @@ export const router = createBrowserRouter(
         <Route path="/demo" element={<Demo />} />
         <Route path="/login" element={<Login/>}/>
         <Route path="/signin" element={<SignIn/>}/>
+        <Route path="/private" element={<Private/>}/>
       </Route>
     )
 );

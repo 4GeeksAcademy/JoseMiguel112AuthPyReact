@@ -36,7 +36,7 @@ def login():
     if email != user.email or password != user.password:
         return jsonify({"msg": "Bad username or password"}), 401
 
-    access_token = create_access_token(identity=email)
+    access_token = create_access_token(identity=str(user.id))
     return jsonify(access_token=access_token), 200
 
 
@@ -58,3 +58,39 @@ def signin():
     db.session.commit()
 
     return jsonify({"msg": "Usuario creado", "email": new_user.email}), 201
+
+@api.route('/private', methods=['GET'])
+@jwt_required()
+def get_user_private():
+    
+    try:
+
+        # Obtener el ID del usuario autenticado
+        current_user_id = get_jwt_identity()
+
+        # Buscar el usuario en la base de datos
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user:
+            return jsonify({"error": "Usuario no encontrado."}), 404
+
+
+        # Se incluye información adicional para el perfil de usuario privado
+        profile_data = current_user.serialize()
+        
+        
+        return jsonify({
+            "message":     "Datos de usuario encontrados",
+            "current_user": profile_data
+        }), 200
+
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+@api.route("/verify-token", methods=["GET"])
+@jwt_required()
+def verify_token():
+    # Devuelve el identity del JWT (aquí será el user.id)
+    return jsonify({"user_id": get_jwt_identity()}), 200
